@@ -1,6 +1,3 @@
-# -*- coding: utf-8 -*-
-
-from urllib.parse import urljoin
 from urllib.parse import urlencode
 import urllib.request as urlrequest
 import json
@@ -8,15 +5,11 @@ from config import WEBHOOK_URL
 
 
 def notify(**kwargs):
-    """
-    Send message to slack API
-    """
+    # send message to slack API
     return send(kwargs)
 
 def send(payload):
-    """
-    Send payload to slack API
-    """
+    # send payload to slack API
     url = WEBHOOK_URL
     opener = urlrequest.build_opener(urlrequest.HTTPHandler())
     payload_json = json.dumps(payload)

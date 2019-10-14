@@ -1,72 +1,72 @@
 import os
 import time
-from webhookHandler import send
 import datetime
+import operator
+
+from webhookHandler import send
+import config
 import jiraHandler
 
 
 def createReport():
 
-	weekday = datetime.datetime.today().weekday()
-	if weekday: # not monday
-		yesterday = (datetime.datetime.today() - datetime.timedelta(days=1)).strftime("%Y/%m/%d")
-		jql = "project = STVCIS and worklogDate = \'{}\'".format(yesterday)
-	else:
-		friday = (datetime.datetime.today() - datetime.timedelta(days=3)).strftime("%Y/%m/%d")
-		monday = datetime.datetime.today().strftime("%Y/%m/%d")
-		jql = "project = STVCIS and worklogDate >= \'{}\' and worklogDate < \'{}\'".format(friday, monday)
-	
-	dayWorkLog = jiraHandler.getDayWorkLog(jql)
+	jira_report = {}
 
-	report_list = []
+	persons = config.persons_dict
+	for person in persons.keys():
+		# get day of week, 0 - monday.
+		weekday = datetime.datetime.today().weekday()
+		if weekday: # not monday
+			# get workdate (yesterday)
+			work_date = (datetime.datetime.today() - datetime.timedelta(days=1)).strftime("%Y/%m/%d")
+			# make jql for jira filter
+			jql = "project = STVCIS and worklogDate = \'{}\' and worklogAuthor = \'{}\'".format(work_date, work_date, person)
+			# get jira worklog for current person
+			jira_report[person] = jiraHandler.getDayWorkLog(jql, work_date, work_date, person)
+		else: # monday, we take holidays to log
+			# get 3 days ago date, so workdate is friday
+			work_date = (datetime.datetime.today() - datetime.timedelta(days=3)).strftime("%Y/%m/%d")
+			# get yesterday date
+			yesterday = (datetime.datetime.today() - datetime.timedelta(days=1)).strftime("%Y/%m/%d")
+			# make jql for jira filter
+			jql = "project = STVCIS and worklogDate >= \'{}\' and worklogDate <= \'{}\' and worklogAuthor = \'{}\'".format(work_date, yesterday, person)
+			# get jira worklog for current person
+			jira_report[person] = jiraHandler.getDayWorkLog(jql, work_date, yesterday, person)
 
-	for person in dayWorkLog:
-		report_list.append(createPersonJson(person, dayWorkLog[person]))
+	slack_report = []
 
+	# generate slack report message
+	for person in persons.keys():
+		jira_report[person] = sorted(jira_report[person].items(), key=operator.itemgetter(0))
+		slack_report.append(createPersonJson(person, jira_report[person]))
+
+	# create slack message
 	report = {}
-	report["attachments"] = report_list
+	slack_report[0]['pretext'] = "*Work date: {}*".format(work_date)
+	report["attachments"] = slack_report
 
 	return report
 
 
-def createPersonJson(person, data):
-	'''
-	{
-		"title": "Andrei Alekseevich log time",
-		"color": "good",
-		"pretext": "Date: 10/06/2019",
-		"text": "Total time: 12h",
-		"fields": [
-			{
-				"title": "STVCIS-145",
-				"value": "Time: 4h",
-				"short": false
-			},
-			{
-				"title": "STVCIS-145",
-				"value": "Time: 4h",
-				"short": false
-			},
-			{
-				"title": "STVCIS-145",
-				"value": "Time: 4h",
-				"short": false
-			}
-		],
-		"mrkdwn_in": [
-			"text",
-			"pretext"
-		]
-	}
-	'''
-	person_dict = {'aalekseevich': 'Andrey Alekseevich', 'askravchenko': 'Andrey Kravchenko', 'dgalkin': 'Dmitrii Galkin'}
+def createPersonJson(person, person_report):
 	report = {}
-	report["title"] = person_dict[person]
+	report["title"] = config.persons_dict[person]
 	tickets = []
-	if data:
+	total_time = 0
+	if person_report:
+		for time in person_report:
+			for time_dict in time[1]:
+				if time_dict['comment']:
+					message = "Time: {}\nLogged time: {}\nComment: {}".format(time[0], time_dict['timeSpent'], time_dict['comment'])
+				else:
+					message = "Time: {}\nLogged time: {}".format(time[0], time_dict['timeSpent'])
+				tickets.append({"title": "[{}] {}".format(time_dict['key'], time_dict['summary']) , "value": message, "short": False})
+				total_time += time_dict['timeSpentSeconds']
+		tickets.append({"title": "Total time: {}".format(str(datetime.timedelta(seconds=total_time))), "short": False})
+	if total_time >= 25200: # 7h
 		report["color"] = "good"
-		for d in data:
-			tickets.append({"title": "[{}] {}".format(d[0], d[1]) , "value": "Logged time: " + str(d[2]), "short": False})
+	elif total_time:
+		report["color"] = "warning"
 	else:
 		report["color"] = "danger"
 		tickets.append({"title": "No logged time", "short": False})
@@ -79,16 +79,17 @@ def createPersonJson(person, data):
 
 def monitoring():
 
-	try:
-		weekday = datetime.datetime.today().weekday()
-		now = datetime.datetime.now()
-		if weekday in range(0, 4) and now.hour == 10 and now.minute == 0:
-			send(payload=createReport())
-			time.sleep(60)
-		
-		time.sleep(10)
-	except Exception as ex:
-		pass
+	while True:
+		try:
+			weekday = datetime.datetime.today().weekday()
+			now = datetime.datetime.now()
+			if weekday in range(0, 4) and now.hour == 9 and now.minute == 30:
+				send(payload=createReport())
+				time.sleep(60)
+			
+			time.sleep(30)
+		except Exception as ex:
+			print(ex)
 
 if __name__ == "__main__":
 	monitoring()
