@@ -2,6 +2,7 @@ import os
 import time
 import datetime
 import operator
+import traceback
 
 from webhookHandler import send
 import config
@@ -20,7 +21,7 @@ def createReport():
 			# get workdate (yesterday)
 			work_date = (datetime.datetime.today() - datetime.timedelta(days=1)).strftime("%Y/%m/%d")
 			# make jql for jira filter
-			jql = "project = STVCIS and worklogDate = \'{}\' and worklogAuthor = \'{}\'".format(work_date, work_date, person)
+			jql = "project = STVCIS and worklogDate = \'{}\' and worklogAuthor = \'{}\'".format(work_date, person)
 			# get jira worklog for current person
 			jira_report[person] = jiraHandler.getDayWorkLog(jql, work_date, work_date, person)
 		else: # monday, we take holidays to log
@@ -79,17 +80,22 @@ def createPersonJson(person, person_report):
 
 def monitoring():
 
+	report = {}
+	report["attachments"] = [{'text': "CIS Worklog bot was started!"}]
+	send(config.webhook_test, payload=report)
+	send(config.webhook_test, payload=createReport())
+
 	while True:
 		try:
 			weekday = datetime.datetime.today().weekday()
 			now = datetime.datetime.now()
 			if weekday in range(0, 4) and now.hour == 9 and now.minute == 30:
-				send(payload=createReport())
+				send(config.webhook_url, payload=createReport())
 				time.sleep(60)
 			
 			time.sleep(30)
 		except Exception as ex:
-			print(ex)
+			traceback.format_exc()
 
 if __name__ == "__main__":
 	monitoring()
