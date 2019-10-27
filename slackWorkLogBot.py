@@ -2,11 +2,15 @@ import os
 import time
 import datetime
 import operator
-import traceback
+import logging
 
 from webhookHandler import send
 import config
 import jiraHandler
+
+
+logging.basicConfig(filename="slackbot.log", level=logging.INFO, format='%(asctime)s : %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p')
+logger = logging.getLogger(__name__)
 
 
 def createReport():
@@ -15,35 +19,25 @@ def createReport():
 
 	persons = config.persons_dict
 	for person in persons.keys():
-		# get day of week, 0 - monday.
 		weekday = datetime.datetime.today().weekday()
 		if weekday: # not monday
-			# get workdate (yesterday)
 			work_date = (datetime.datetime.today() - datetime.timedelta(days=1)).strftime("%Y/%m/%d")
-			# make jql for jira filter
 			jql = "project = STVCIS and worklogDate = \'{}\' and worklogAuthor = \'{}\'".format(work_date, person)
-			# get jira worklog for current person
 			jira_report[person] = jiraHandler.getDayWorkLog(jql, work_date, work_date, person)
 		else: # monday, we take holidays to log
-			# get 3 days ago date, so workdate is friday
 			work_date = (datetime.datetime.today() - datetime.timedelta(days=3)).strftime("%Y/%m/%d")
-			# get yesterday date
 			yesterday = (datetime.datetime.today() - datetime.timedelta(days=1)).strftime("%Y/%m/%d")
-			# make jql for jira filter
 			jql = "project = STVCIS and worklogDate >= \'{}\' and worklogDate <= \'{}\' and worklogAuthor = \'{}\'".format(work_date, yesterday, person)
-			# get jira worklog for current person
 			jira_report[person] = jiraHandler.getDayWorkLog(jql, work_date, yesterday, person)
 
 	slack_report = []
 
-	# generate slack report message
 	for person in persons.keys():
 		jira_report[person] = sorted(jira_report[person].items(), key=operator.itemgetter(0))
 		slack_report.append(createPersonJson(person, jira_report[person]))
 
-	# create slack message
 	report = {}
-	slack_report[0]['pretext'] = "*Work date: {}*".format(work_date)
+	slack_report[0]['pretext'] = "*Work date: {}*\n*Sprint progress*: {}".format(work_date, jiraHandler.getSprintProgress())
 	report["attachments"] = slack_report
 
 	return report
@@ -80,6 +74,7 @@ def createPersonJson(person, person_report):
 
 def monitoring():
 
+	logger.info("Bot started")
 	report = {}
 	report["attachments"] = [{'text': "CIS Worklog bot was started!"}]
 	send(config.webhook_test, payload=report)
@@ -89,13 +84,22 @@ def monitoring():
 		try:
 			weekday = datetime.datetime.today().weekday()
 			now = datetime.datetime.now()
-			if weekday in range(0, 4) and now.hour == 9 and now.minute == 30:
-				send(config.webhook_url, payload=createReport())
+			if weekday in range(0, 4) and now.hour == 6 and now.minute == 30:
+				logger.info("Sending message")
+				response = send(config.webhook_url, payload=createReport())
+				logger.info("Response: {}".format(response))
+				time.sleep(60)
+			if now.hour in (8, 10, 12, 14, 16, 18, 20, 22) and now.minute == 0:
+				report = {}
+				report["attachments"] = [{'text': "CIS Worklog bot is working!"}]
+				logger.info("Sending status")
+				response = send(config.webhook_test, payload=report)
+				logger.info("Response: {}".format(response))
 				time.sleep(60)
 			
 			time.sleep(30)
 		except Exception as ex:
-			traceback.format_exc()
+			logger.info("Exception: {}".format(ex))
 
 if __name__ == "__main__":
 	monitoring()
