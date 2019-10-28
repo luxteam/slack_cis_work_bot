@@ -79,7 +79,9 @@ def getSprintProgress():
 				if worklog['started'] >= sprint_info['startDate'] and worklog['started'] <= sprint_info['endDate']:
 					issueLogTime += worklog['timeSpentSeconds']
 
-			if issueLogTime < issueInfo['fields']['aggregatetimeoriginalestimate']:
+			if issueInfo['fields']['status']['name'] in ('Resolved', 'Closed'):
+				total_log_time += issueInfo['fields']['aggregatetimeoriginalestimate']
+			elif issueLogTime < issueInfo['fields']['aggregatetimeoriginalestimate']:
 				total_log_time += issueLogTime
 			else:
 				total_log_time += issueInfo['fields']['aggregatetimeoriginalestimate']
