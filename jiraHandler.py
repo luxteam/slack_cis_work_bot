@@ -61,41 +61,44 @@ def getIssueInfo(ticket):
 
 def getSprintProgress():
 	sprint_id = getActiveSprintId()
-	sprint_info = getSprintInfo(sprint_id)
-	jql = "project = STVCIS and sprint = {}".format(sprint_id)
-	issues_list = getIssuesListFronJQL(jql)
-	total_estimation, total_log_time, cis_total_time, cis_log_time = (0, 0, 0, 0)
-	for issue in issues_list:
-		issueInfo = getIssueInfo(issue)
-		worklogs = getTicketWorklog(issueInfo['key'])
-		if type(issueInfo['fields']['aggregatetimeoriginalestimate']) == int:
-			if 'CIS Maintenance' in issueInfo['fields']['summary']:
-				cis_total_time += issueInfo['fields']['aggregatetimeoriginalestimate']
-			else:
-				total_estimation += issueInfo['fields']['aggregatetimeoriginalestimate']
+	if sprint_id:
+		sprint_info = getSprintInfo(sprint_id)
+		jql = "project = STVCIS and sprint = {}".format(sprint_id)
+		issues_list = getIssuesListFronJQL(jql)
+		total_estimation, total_log_time, cis_total_time, cis_log_time = (0, 0, 0, 0)
+		for issue in issues_list:
+			issueInfo = getIssueInfo(issue)
+			worklogs = getTicketWorklog(issueInfo['key'])
+			if type(issueInfo['fields']['aggregatetimeoriginalestimate']) == int:
+				if 'CIS Maintenance' in issueInfo['fields']['summary']:
+					cis_total_time += issueInfo['fields']['aggregatetimeoriginalestimate']
+				else:
+					total_estimation += issueInfo['fields']['aggregatetimeoriginalestimate']
 
-			issueLogTime = 0
-			for worklog in worklogs:
-				if worklog['started'] >= sprint_info['startDate'] and worklog['started'] <= sprint_info['endDate']:
-					issueLogTime += worklog['timeSpentSeconds']
+				issueLogTime = 0
+				for worklog in worklogs:
+					if worklog['started'] >= sprint_info['startDate'] and worklog['started'] <= sprint_info['endDate']:
+						issueLogTime += worklog['timeSpentSeconds']
 
-			if issueInfo['fields']['status']['name'] in ('Resolved', 'Closed'):
-				total_log_time += issueInfo['fields']['aggregatetimeoriginalestimate']
-			elif issueLogTime < issueInfo['fields']['aggregatetimeoriginalestimate']:
-				total_log_time += issueLogTime
+				if issueInfo['fields']['status']['name'] in ('Resolved', 'Closed'):
+					total_log_time += issueInfo['fields']['aggregatetimeoriginalestimate']
+				elif issueLogTime < issueInfo['fields']['aggregatetimeoriginalestimate']:
+					total_log_time += issueLogTime
+				else:
+					total_log_time += issueInfo['fields']['aggregatetimeoriginalestimate']
 			else:
-				total_log_time += issueInfo['fields']['aggregatetimeoriginalestimate']
+				for worklog in worklogs:
+					cis_log_time += worklog['timeSpentSeconds']
+
+		total_estimation += cis_total_time
+		if cis_log_time < cis_total_time:
+			total_log_time += cis_log_time
 		else:
-			for worklog in worklogs:
-				cis_log_time += worklog['timeSpentSeconds']
+			total_log_time += cis_total_time
 
-	total_estimation += cis_total_time
-	if cis_log_time < cis_total_time:
-		total_log_time += cis_log_time
+		progress = round(total_log_time/total_estimation, 2)
 	else:
-		total_log_time += cis_total_time
-
-	progress = round(total_log_time/total_estimation, 2)
+		progress = 0
 	return "{}%".format(progress*100)
 
 
