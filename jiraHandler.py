@@ -54,7 +54,7 @@ def getTicketWorklog(ticket):
 
 
 def getIssueInfo(ticket):
-	response = requests.get("https://adc.luxoft.com/jira/rest/api/2/issue/{}".format(ticket), auth=(config.jira_username, config.jira_token))
+	response = requests.get("{}/rest/api/2/issue/{}".format(config.jira_host, ticket), auth=(config.jira_username, config.jira_token))
 	issueInfo = response.json()
 	return issueInfo
 

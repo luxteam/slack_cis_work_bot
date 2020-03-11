@@ -81,11 +81,13 @@ def sendDirectMessage(text):
 
 def monitoring():
 
-	sendDirectMessage("CIS/ART Worklog bot was started!")	
+	sendDirectMessage("CIS/ART/GAME Worklog bot was started!")	
 
-	#cis_response = send(config.test_webhook_url, payload=createReport(config.cis_persons_dict, 'STVCIS'))
+	#cis_response = send(config.cis_webhook_url, payload=createReport(config.cis_persons_dict, 'STVCIS'))
 	#sendDirectMessage("CIS response: {}".format(cis_response))
-	#art_response = send(config.test_webhook_url, payload=createReport(config.art_persons_dict, 'STVART'))
+	#art_response = send(config.art_webhook_url, payload=createReport(config.art_persons_dict, 'STVART'))
+	#sendDirectMessage("ART response: {}".format(art_response))
+	#game_response = send(config.game_webhook_url, payload=createReport(config.game_persons_dict, 'STVITT'))
 	#sendDirectMessage("ART response: {}".format(art_response))
 
 	while True:
@@ -95,19 +97,8 @@ def monitoring():
 			if weekday in range(0, 4) and now.hour == 6 and now.minute == 30:
 
 				cis_response = send(config.cis_webhook_url, payload=createReport(config.cis_persons_dict, 'STVCIS'))
-				sendDirectMessage("CIS response: {}".format(cis_response))
 				art_response = send(config.art_webhook_url, payload=createReport(config.art_persons_dict, 'STVART'))
-				sendDirectMessage("ART response: {}".format(art_response))
-
-				while cis_response != 'ok':
-					time.sleep(15)
-					cis_response = send(config.cis_webhook_url, payload=createReport(config.cis_persons_dict, 'STVCIS'))
-					sendDirectMessage("CIS response: {}".format(cis_response))
-
-				while art_response != 'ok':
-					time.sleep(15)
-					art_response = send(config.art_webhook_url, payload=createReport(config.art_persons_dict, 'STVART'))
-					sendDirectMessage("ART response: {}".format(art_response))
+				game_response = send(config.game_webhook_url, payload=createReport(config.game_persons_dict, 'STVITT'))
 
 				time.sleep(60)
 			
