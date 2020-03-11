@@ -94,7 +94,7 @@ def monitoring():
 		try:
 			weekday = datetime.datetime.today().weekday()
 			now = datetime.datetime.now()
-			if weekday in range(0, 4) and now.hour == 6 and now.minute == 30:
+			if weekday in range(0, 5) and now.hour == 6 and now.minute == 30:
 
 				cis_response = send(config.cis_webhook_url, payload=createReport(config.cis_persons_dict, 'STVCIS'))
 				art_response = send(config.art_webhook_url, payload=createReport(config.art_persons_dict, 'STVART'))
